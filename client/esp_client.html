@@ -1,0 +1,145 @@
+<html lang="EN">
+<head>
+    <script src="paho-mqtt.js"></script>
+    <title>Test</title>
+</head>
+<body>
+
+</body>
+</html>
+
+<script>
+    const BROKER_HOST = 'hivemq.cloud_url';
+    const BROKER_PORT = 8884;
+    const MQTT_TOPIC = 'home/garage/control';
+
+    const MQTT_USER = 'user_name';
+    const MQTT_PASS = 'password';
+
+    const url = `wss://${BROKER_HOST}:${BROKER_PORT}/mqtt`;
+
+    const options = {
+        clean: true,
+        connectTimeout: 4000,
+        username: MQTT_USER,
+        password: MQTT_PASS,
+        useSSL: true,
+    };
+
+    const client = mqtt.connect(url, options);
+    let k = 0;
+
+    client.on('connect', function () {
+        client.subscribe(MQTT_TOPIC, function (err) {
+            if (!err) {
+                console.log('Subscribed to ' + MQTT_TOPIC);
+            }
+        });
+    });
+
+
+    function publishMessage(arrow) {
+        if (client.connected) {
+            client.publish(MQTT_TOPIC, arrow, function (pubErr) {
+                if (!pubErr) {
+                    logMessage(`Published message: ${arrow} successfully.`);
+                } else {
+                    logMessage("Failed to publish message: " + pubErr);
+                }
+            });
+        } else {
+            logMessage("Клиент не подключен. Подождите подключения.");
+        }
+    }
+
+    function logMessage(message) {
+        const log = new Date().toLocaleTimeString() + ": " + message;
+        console.log(log);
+    }
+
+    client.on('error', function (err) {
+        console.error("Connection error:", err);
+    });
+
+    const pressedKeys = {
+        ArrowUp: false,
+        ArrowDown: false,
+        ArrowLeft: false,
+        ArrowRight: false,
+    };
+
+    const controlKeys = [
+        'ArrowUp',
+        'ArrowDown',
+        'ArrowRight',
+        'ArrowLeft'
+    ];
+
+    const arrowsToInt = {
+        ArrowUp: 0,
+        ArrowDown: 1,
+        ArrowLeft: 2,
+        ArrowRight: 3,
+        ArrowUpArrowLeft: 4,
+        ArrowUpArrowRight: 5,
+        ArrowDownArrowLeft: 6,
+        ArrowDownArrowRight: 7,
+        allKeyWasUp: 8,
+    };
+
+    document.body.addEventListener("keydown", function (event) {
+        if (!event.repeat) {
+            console.log(`Первое нажатие клавиши: ${event.key}`);
+
+            const keyName = event.key;
+            if (!controlKeys.includes(keyName)) {
+                return;
+            }
+
+            if (!pressedKeys[keyName]) {
+                if (keyName === 'ArrowUp' && pressedKeys.ArrowDown) {
+                    pressedKeys.ArrowDown = false;
+                } else if (keyName === 'ArrowDown' && pressedKeys.ArrowUp) {
+                    pressedKeys.ArrowUp = false;
+                } else if (keyName === 'ArrowRight' && pressedKeys.ArrowLeft) {
+                    pressedKeys.ArrowLeft = false;
+                } else if (keyName === 'ArrowLeft' && pressedKeys.ArrowRight) {
+                    pressedKeys.ArrowRight = false;
+                }
+
+                pressedKeys[keyName] = true;
+                go();
+            }
+        }
+    });
+
+    document.body.addEventListener("keyup", function (event) {
+        const keyName = event.key;
+        if (!controlKeys.includes(keyName)) {
+            return;
+        }
+
+        if (pressedKeys[keyName]) {
+            pressedKeys[keyName] = false;
+            go();
+        }
+    });
+
+    const allKeyWasUp = 'allKeyWasUp';
+    function go() {
+        let arrow = "";
+        for(const i in pressedKeys) {
+            if (pressedKeys[i]) {
+                arrow += i;
+            }
+        }
+        if (!arrow) {
+            arrow = allKeyWasUp;
+        }
+
+        if (arrow) {
+            publishMessage(`${arrowsToInt[arrow]}`);
+        }
+    }
+
+</script>
